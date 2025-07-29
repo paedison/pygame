@@ -1,0 +1,103 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="DjangoUnresolvedTemplateReferenceInspection" enabled="true" level="WARNING" enabled_by_default="true" editorAttributes="WARNING_ATTRIBUTES" />
+    <inspection_tool class="HtmlNonExistentInternetResource" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="HtmlPresentationalElement" enabled="true" level="INFORMATION" enabled_by_default="true" />
+    <inspection_tool class="HtmlUnknownAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="1">
+            <item index="0" class="java.lang.String" itemvalue="_" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="13">
+            <item index="0" class="java.lang.String" itemvalue="nobr" />
+            <item index="1" class="java.lang.String" itemvalue="noembed" />
+            <item index="2" class="java.lang.String" itemvalue="comment" />
+            <item index="3" class="java.lang.String" itemvalue="noscript" />
+            <item index="4" class="java.lang.String" itemvalue="embed" />
+            <item index="5" class="java.lang.String" itemvalue="script" />
+            <item index="6" class="java.lang.String" itemvalue="div" />
+            <item index="7" class="java.lang.String" itemvalue="content" />
+            <item index="8" class="java.lang.String" itemvalue="fade-in" />
+            <item index="9" class="java.lang.String" itemvalue="hero" />
+            <item index="10" class="java.lang.String" itemvalue="collection" />
+            <item index="11" class="java.lang.String" itemvalue="problem" />
+            <item index="12" class="java.lang.String" itemvalue="memo" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="PyAugmentAssignmentInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyMissingTypeHintsInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="1">
+            <item index="0" class="java.lang.String" itemvalue="typing_extensions" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E501" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N803" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="str.save" />
+          <option value="tuple.exists" />
+          <option value="django.db.models.fields.related.ForeignKey.*" />
+          <option value="psat.models.UserAnswerVote.*" />
+          <option value="psat.models.UserAnswer.*" />
+          <option value="psat.models.UserQuestionVote.*" />
+          <option value="django.db.models.fields.related.OneToOneField.*" />
+          <option value="psat.models.Evaluation.DoesNotExist" />
+          <option value="object.full_title" />
+          <option value="object.values_list" />
+          <option value="object.image_file" />
+          <option value="object.number" />
+          <option value="allauth.socialaccount.models.SocialAccount.objects" />
+          <option value="object.is_authenticated" />
+          <option value="common.views.dashboard_view.CardBaseView.get_context_data" />
+          <option value="common.views.dashboard_view.CardBaseView.kwargs" />
+          <option value="psat.models.AddInfo.problem" />
+          <option value="common.views.dashboard_view.CardBaseView.request" />
+          <option value="common.views.dashboard_view.CardBaseView.info" />
+          <option value="common.views.dashboard_view.CardBaseView.is_liked" />
+          <option value="common.views.dashboard_view.CardBaseView.star_count" />
+          <option value="common.views.dashboard_view.CardBaseView.is_correct" />
+          <option value="object.get_context_data" />
+          <option value="common.views.dashboard_view.CardBaseView.update_context" />
+          <option value="django.core.handlers.wsgi.WSGIRequest.user" />
+          <option value="psat.views.list_views.EvaluationInfoMixIn.request" />
+          <option value="psat.views.list_views.QuerysetFieldMixIn.category" />
+          <option value="tuple.*" />
+          <option value="django.db.models.query.QuerySet.annotate_score_and_rank" />
+          <option value="django.db.models.query.QuerySet.order_by_rank" />
+          <option value="django.db.models.query.QuerySet._with_registries" />
+          <option value="django.db.models.query.QuerySet.annotate_student_info_score_rank" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
