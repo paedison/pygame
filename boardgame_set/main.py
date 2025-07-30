@@ -1,16 +1,12 @@
 import random
 from itertools import combinations
-from datetime import datetime
 
 import pygame
 
 from boardgame_set.user_event import UserEvent
 from boardgame_set.inerface import Button, Card
 from boardgame_set.logger import DebugLogger, GameLogger
-
-WINDOW_WIDTH = 700
-WINDOW_HEIGHT = 800
-BACKGROUND_COLOR = (255, 255, 255)
+from boardgame_set import constants as CONST  # noqa
 
 user_event = UserEvent()
 debug_logger = DebugLogger()
@@ -18,6 +14,25 @@ logger = GameLogger()
 
 pygame.init()
 FONT_1 = pygame.font.SysFont("나눔고딕", 20)
+
+
+def generate_deck(for_test=False):
+    colors = ['red', 'green', 'purple']
+    shapes = ['oval', 'squiggle', 'diamond']
+    counts = [1, 2, 3]
+    fills = ['solid', 'striped', 'open']
+    deck = [Card(c, s, n, f) for c in colors for s in shapes for n in counts for f in fills]
+
+    if for_test:
+        return random.sample(deck, 12)
+    return deck
+
+
+def get_card_image(filename=None):
+    if filename is None:
+        filename = '_empty_card'
+    original = pygame.image.load(f'images/{filename}.png').convert_alpha()
+    return pygame.transform.smoothscale(original, (CONST.CARD_WIDTH, CONST.CARD_HEIGHT))
 
 
 # 📦 카드 렌더링용 Sprite
@@ -32,14 +47,9 @@ class CardSprite(pygame.sprite.Sprite):
         super().__init__()
         self.card = card
         self.position = position
-        self.image = self.get_card_image()
+        self.image = get_card_image(self.card.filename)
+        self.empty_image = get_card_image()
         self.rect = self.image.get_rect(topleft=self.position)
-
-    def get_card_image(self, filename: str | None = None):
-        if not filename:
-            filename = self.card.filename
-        original = pygame.image.load(f'images/{filename}.png').convert_alpha()
-        return pygame.transform.smoothscale(original, (100, 150))
 
     def update(self):
         if self.state == 'fade_out':
@@ -51,11 +61,11 @@ class CardSprite(pygame.sprite.Sprite):
         elif self.state == 'replacing':
             if self.next_card:
                 self.card = self.next_card
-                self.image = self.get_card_image()
+                self.image = get_card_image(self.card.filename)
                 self.next_card = None
             else:
                 self.card = None
-                self.image = self.get_card_image('_empty_card')
+                self.image = self.empty_image
             self.alpha = 0
             self.state = 'fade_in'
 
@@ -90,57 +100,44 @@ class GameBoard:
     message_time = pygame.time.get_ticks()
     message_duration = 500
 
+    hint_index = 0
+    last_click_time = 0
+    click_delay = 300  # 밀리초 단위 (0.3초)
+
+    selected_idx = []
+    matched_sets = []
+    failure_count = 0
+
     def __init__(self):
-
-        # self.deck = self.generate_deck()
-        self.deck = self.generate_test_deck()
+        # self.deck = generate_deck()
+        self.deck = generate_deck(for_test=True)
         self.deck_depleted = False
+
         self.sprites: list[CardSprite | None] = self.create_initial_sprites()
-        self.selected_idx = []
-        self.matched_sets = []
-
-        empty = pygame.image.load(f'images/_empty_card.png').convert_alpha()
-        self.empty_image = pygame.transform.smoothscale(empty, (100, 150))
-
-        self.last_click_time = 0
-        self.click_delay = 300  # 밀리초 단위 (0.3초)
-
         self.hint_sets = self.find_all_sets()
-        self.hint_index = 0
 
     def get_score(self):
         return len(self.matched_sets) * 3
-
-    def generate_test_deck(self):
-        deck = self.generate_deck()
-        return random.sample(deck, 12)
-
-    @staticmethod
-    def generate_deck():
-        colors = ['red', 'green', 'purple']
-        shapes = ['oval', 'squiggle', 'diamond']
-        counts = [1, 2, 3]
-        fills = ['solid', 'striped', 'open']
-        return [Card(c, s, n, f) for c in colors for s in shapes for n in counts for f in fills]
 
     def create_initial_sprites(self):
         created = []
         chosen = random.sample(self.deck, 12)
         for idx, card in enumerate(chosen):
-            pos = self.get_position(idx)
-            sprite = CardSprite(card, pos)
+            position = self.get_sprite_position(idx)
+            sprite = CardSprite(card, position)
             created.append(sprite)
             self.deck.remove(card)
         return created
 
     @staticmethod
-    def get_position(idx):
-        x = 50 + (idx % 4) * 140
-        y = 80 + (idx // 4) * 180
+    def get_sprite_position(idx):
+        x_margin = (CONST.WINDOW_WIDTH - CONST.CARD_WIDTH * 4 - CONST.CARD_PADDING * 3) // 2
+        x = x_margin + (idx % 4) * (CONST.CARD_WIDTH + CONST.CARD_PADDING)
+        y = 40 + (idx // 4) * (CONST.CARD_HEIGHT + CONST.CARD_PADDING)
         return x, y
 
     def find_all_sets(self):
-        valid_indices = [i for i, s in enumerate(self.sprites) if s and s.card is not None]
+        valid_indices = [i for i, s in enumerate(self.sprites) if s and s.card]
         return [
             combo for combo in combinations(valid_indices, 3)
             if self.is_set(*(self.sprites[i].card for i in combo))
@@ -156,7 +153,7 @@ class GameBoard:
 
     def handle_click(self, pos):
         for idx, sprite in enumerate(self.sprites):
-            if sprite and sprite.rect.collidepoint(pos):
+            if sprite.card and sprite.rect.collidepoint(pos):
                 if sprite.is_selected:
                     sprite.is_selected = False
                     self.selected_idx.remove(idx)
@@ -167,7 +164,7 @@ class GameBoard:
 
         if len(self.selected_idx) == 3:
             pygame.time.set_timer(user_event.load_check_set, 100)
-            pygame.time.set_timer(user_event.animation_done, 600)
+        pygame.time.set_timer(user_event.animation_done, 500)
 
     def show_message(self, text, duration=0.5):
         self.message_text = text
@@ -180,16 +177,17 @@ class GameBoard:
             sprite = self.sprites[i]
             sprite.is_selected = False
             sprite.is_hinted = False
-            if sprite:
+            if sprite and sprite.card:
                 selected.append(sprite.card)
 
         if self.is_set(*selected):
-            self.matched_sets.append(selected)
             msg = '세트 성공!'
+            self.matched_sets.append(selected)
             pygame.time.set_timer(user_event.set_success, 500)
             pygame.time.set_timer(user_event.animation_done, 500)
         else:
             msg = '세트 실패!'
+            self.failure_count += 1
             self.selected_idx.clear()
 
         self.show_message(msg)
@@ -209,7 +207,7 @@ class GameBoard:
             if sprite:
                 sprite.is_hinted = False
                 sprite.is_selected = False
-        print(self.hint_sets)
+
         duration = 0.5
         if self.hint_sets:
             msg = '세트가 존재합니다!'
@@ -232,6 +230,7 @@ class GameBoard:
         self.show_message(msg, duration)
         logger.add(msg, 'HINT')
         self.selected_idx.clear()
+        pygame.time.set_timer(user_event.animation_done, 500)
 
     def replace_all_cards(self):
         self.deck += [s.card for s in self.sprites if s and s.card not in self.deck]
@@ -239,17 +238,12 @@ class GameBoard:
         for i, sprite in enumerate(self.sprites):
             new_card = new_cards[i]
             self.deck.remove(new_card)
-            sprite.start_fade_out(new_card)  # replace_all_cards
+            sprite.start_fade_out(new_card)  # 전체 카드 교체
 
     def draw(self, screen):
         for idx, sprite in enumerate(self.sprites):
-            if sprite is None:
-                screen.blit(self.empty_image, self.get_position(idx))
-            else:
-                sprite.update()
-                if sprite.state == 'removed':
-                    self.sprites[idx] = None
-                sprite.draw(screen)
+            sprite.update()
+            sprite.draw(screen)
 
         now = pygame.time.get_ticks()
         if self.message_text and now - self.message_time < self.message_duration:
@@ -259,25 +253,35 @@ class GameBoard:
 
 # 🕹️ 메인 게임 클래스
 class SetGame:
-    restart_btn = Button("다시 시작(R)", (WINDOW_WIDTH - 160, WINDOW_HEIGHT - 50))
-    hint_btn = Button("힌트 보기(H)", (WINDOW_WIDTH - 300, WINDOW_HEIGHT - 50))
-    restart_btn_in_dialog: Button
-    quit_button_in_dialog: Button
-
-    font = pygame.font.SysFont('나눔고딕', 20)
-
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()
+
     end_ticks = 0
     running = True
     animating = False
     in_restart_dialog = False
 
     def __init__(self):
-        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.screen = pygame.display.set_mode((CONST.WINDOW_WIDTH, CONST.WINDOW_HEIGHT))
         pygame.display.set_caption('SET 게임 (Pygame 버전)')
+
         self.board = GameBoard()
         self.event_handler = GameEventHandler(self)
+
+        self.box_x = (self.screen.get_width() - CONST.MESSAGE_BOX_WIDTH) // 2
+        self.box_y = (self.screen.get_height() - CONST.MESSAGE_BOX_HEIGHT) // 2
+
+        self.restart_btn = Button("다시 시작(R)", (CONST.WINDOW_WIDTH - 160, CONST.WINDOW_HEIGHT - 50))
+        self.hint_btn = Button("힌트 보기(H)", (CONST.WINDOW_WIDTH - 300, CONST.WINDOW_HEIGHT - 50))
+
+        self.restart_btn_in_dialog = Button(
+            '다시 시작', (self.box_x + 80, self.box_y + 160),
+            bg_color=(0, 125, 0), text_color=CONST.C_WHITE, bold=True
+        )
+        self.quit_btn_in_dialog = Button(
+            '종료', (self.box_x + 280, self.box_y + 160),
+            bg_color=(125, 0, 0), text_color=CONST.C_WHITE, bold=True
+        )
 
     def show_restart_dialog(self):
         # 배경 어둡게 처리
@@ -286,39 +290,90 @@ class SetGame:
         self.screen.blit(overlay, (0, 0))
 
         # 메시지 박스
-        box_width, box_height = 480, 250
-        box_x = (self.screen.get_width() - box_width) // 2
-        box_y = (self.screen.get_height() - box_height) // 2
-        pygame.draw.rect(self.screen, (255, 255, 255), (box_x, box_y, box_width, box_height))
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 255),
+            (self.box_x, self.box_y, CONST.MESSAGE_BOX_WIDTH, CONST.MESSAGE_BOX_HEIGHT)
+        )
 
-        # 글꼴 설정
-        font = pygame.font.SysFont('나눔고딕', 20)
+        x_position = self.box_x + 80
+        y_position = self.box_y + 40
 
-        # 점수 및 시간 계산
-        play_time = int((self.end_ticks - self.start_ticks) / 1000)
-        minutes = play_time // 60
-        seconds = play_time % 60
-        time_text = f'{minutes}분 {seconds}초'
+        # 시간 및 성공/실패 횟수 표시
+        time_text = self.get_play_time_text(self.end_ticks)
+        time_msg, success_msg, fail_msg = self.get_game_score_message(time_text)
+        restart_msg = FONT_1.render('게임이 끝났습니다. 다시 시작할까요?', True, (0, 0, 0))
 
-        score = self.board.get_score()
-        score_msg = font.render(f'점수: {score}', True, (0, 0, 0))
-        time_msg = font.render(f'플레이 시간: {time_text}', True, (0, 0, 0))
-        restart_msg = font.render('게임이 끝났습니다. 다시 시작할까요?', True, (0, 0, 0))
-
-        self.screen.blit(score_msg, (box_x + 80, box_y + 40))
-        self.screen.blit(time_msg, (box_x + 80, box_y + 70))
-        self.screen.blit(restart_msg, (box_x + 80, box_y + 100))
+        self.screen.blit(time_msg, (x_position, y_position))
+        self.screen.blit(success_msg, (x_position, y_position + 30))
+        self.screen.blit(fail_msg, (x_position, y_position + 60))
+        self.screen.blit(restart_msg, (x_position, y_position + 90))
 
         # 버튼 생성
-        self.restart_btn_in_dialog = Button(
-            '다시 시작', (box_x + 80, box_y + 160), bg_color=(0, 125, 0), text_color=(255, 255, 255), bold=True)
-        self.quit_button_in_dialog = Button(
-            '종료', (box_x + 280, box_y + 160), bg_color=(125, 0, 0), text_color=(255, 255, 255), bold=True)
-
         self.restart_btn_in_dialog.draw(self.screen)
-        self.quit_button_in_dialog.draw(self.screen)
+        self.quit_btn_in_dialog.draw(self.screen)
 
         pygame.display.update()
+
+    def get_play_time_text(self, target_ticks):
+        play_time = (target_ticks - self.start_ticks) // 1000
+        minutes = play_time // 60
+        seconds = play_time % 60
+        return f'{minutes}:{seconds:02}'
+
+    def get_game_score_message(self, time_text: str):
+        time_msg = FONT_1.render(f'시간 {time_text}', True, (0, 0, 0))
+        success_msg = FONT_1.render(f'성공 {len(self.board.matched_sets)}', True, (0, 0, 0))
+        fail_msg = FONT_1.render(f'실패 {self.board.failure_count}', True, (0, 0, 0))
+        return time_msg, success_msg, fail_msg
+
+    def button_is_clicked(self, button: str, event):
+        if hasattr(self, button):
+            return getattr(self, button).is_clicked(event.pos)
+
+    def handle_restart_button(self):
+        self.board = GameBoard()
+        self.start_ticks = pygame.time.get_ticks()
+        self.in_restart_dialog = self.board.deck_depleted = False
+        logger.clear()
+
+    def handle_hint_button(self):
+        self.animating = True
+        self.board.handle_hint()
+
+    def handle_mouse_click(self, event):
+        self.animating = True
+        self.board.handle_click(event.pos)
+
+    def handle_hint_key(self):
+        self.board.handle_hint()
+        self.in_restart_dialog = self.board.deck_depleted
+        if self.in_restart_dialog:
+            self.end_ticks = pygame.time.get_ticks()
+
+    def handle_set_success(self):
+        _board = self.board
+        if _board.deck:
+            # 덱에 카드가 있다면 교체
+            for i in _board.selected_idx:
+                sprite = _board.sprites[i]
+                new_card = random.choice(_board.deck)
+                _board.deck.remove(new_card)
+                sprite.start_fade_out(new_card)  # 세트 성공시 새 카드가 있는 경우
+        else:
+            # 덱에 카드가 없으면 해당 카드 제거
+            debug_logger.log("PRE_CARD_REMOVE", sprites=_board.sprites)
+            for i in _board.selected_idx:
+                sprite = _board.sprites[i]
+                sprite.start_fade_out()  # 세트 성공시 새 카드가 없는 경우
+            debug_logger.log("POST_CARD_REMOVE", sprites=_board.sprites)
+
+            if not _board.find_all_sets():
+                self.in_restart_dialog = True
+
+        pygame.time.set_timer(user_event.set_success, 0)  # 타이머 종료
+        _board.hint_sets = _board.find_all_sets()
+        _board.selected_idx.clear()  # 교체된 후에는 초기화
 
     def draw_log(self):
         font = pygame.font.SysFont('나눔고딕', 18)
@@ -336,19 +391,23 @@ class SetGame:
     def render(self):
         self.board.draw(self.screen)
 
-        elapsed_seconds = (pygame.time.get_ticks() - self.start_ticks) // 1000
-        time_text = FONT_1.render(f'시간: {elapsed_seconds}초', True, (0, 0, 0))
-        self.screen.blit(time_text, (20, WINDOW_HEIGHT - 70))
+        x_position = 20
+        y_position = CONST.WINDOW_HEIGHT - 40
 
-        score_text = FONT_1.render(f"점수: {len(self.board.matched_sets) * 3}", True, (0, 0, 0))
-        self.screen.blit(score_text, (20, WINDOW_HEIGHT - 40))
+        # 시간 및 성공/실패 횟수 표시
+        time_text = self.get_play_time_text(pygame.time.get_ticks())
+        time_msg, success_msg, fail_msg = self.get_game_score_message(time_text)
+
+        self.screen.blit(time_msg, (x_position, y_position - 60))
+        self.screen.blit(success_msg, (x_position, y_position - 30))
+        self.screen.blit(fail_msg, (x_position, y_position))
 
         self.restart_btn.draw(self.screen)
         self.hint_btn.draw(self.screen)
         self.draw_log()
 
     def update_screen(self):
-        self.screen.fill(BACKGROUND_COLOR)
+        self.screen.fill(CONST.BACKGROUND_COLOR)
 
         if self.in_restart_dialog:
             self.show_restart_dialog()
@@ -371,90 +430,68 @@ class SetGame:
 class GameEventHandler:
     def __init__(self, set_game: SetGame):
         self.game = set_game
+        self.handlers = {
+            pygame.QUIT:                    self.on_event_game_quit,            # 256
+            pygame.MOUSEBUTTONUP:           self.on_event_mouse_button_up,      # 1026
+            pygame.KEYUP:                   self.on_event_key_up,               # 769
+            user_event.load_check_set:      self.on_event_load_check_set,       # 32867
+            user_event.set_success:         self.on_event_set_success,          # 32868
+            user_event.animation_done:      self.on_event_animation_done,       # 32869
+            user_event.game_over:           self.on_event_game_over,            # 32870
+            user_event.replace_all_cards:   self.on_event_replace_all_cards,    # 32870
+        }
 
     def handle(self, event):
         if self.game.in_restart_dialog:
-            self.handle_restart_dialog(event)
-        else:
-            self.handle_main_event(event)
+            self.on_event_restart_dialog(event)
+        elif handler := self.handlers.get(event.type):
+            handler(event)  # noqa
 
-    def handle_game_quit(self, _):
-        self.game.running = False
-        logger.add('게임이 정상 종료되었습니다.', 'END')
-
-    def handle_mouse_button_up(self, event):
-        _game, _board = self.game, self.game.board
-        if _game.hint_btn.is_clicked(event.pos):
-            _board.handle_hint()
-        elif _game.restart_btn.is_clicked(event.pos):
-            self.game.board = GameBoard()  # _board와 같이 수정하면 안됨  # noqa
-            _game.start_ticks = pygame.time.get_ticks()
-        else:
-            _board.handle_click(event.pos)
-
-    def handle_key_up(self, event):
-        _game, _board = self.game, self.game.board
-        if event.key == pygame.K_h:
-            _board.handle_hint()
-            _game.in_restart_dialog = _board.deck_depleted
-            if _game.in_restart_dialog:
-                _game.end_ticks = pygame.time.get_ticks()
-        elif event.key == pygame.K_r:
-            self.game.board = GameBoard()  # _board와 같이 수정하면 안됨  # noqa
-            _game.start_ticks = pygame.time.get_ticks()
-        elif event.key == pygame.K_ESCAPE:
-            _game.running = False
-
-    def handle_event_load_check_set(self, _):
-        _game, _board = self.game, self.game.board
-        _board.check_set()
-        pygame.time.set_timer(user_event.load_check_set, 0)  # 타이머 종료
-
-    def handle_restart_dialog(self, event):
-        _game, _board = self.game, self.game.board
+    def on_event_restart_dialog(self, event):
+        _game = self.game
         if event.type == pygame.MOUSEBUTTONUP:
-            if _game.restart_btn_in_dialog.is_clicked(event.pos):
-                self.start_new_game()
-                _game.in_restart_dialog = False
-            elif _game.quit_button_in_dialog.is_clicked(event.pos):
+            if _game.button_is_clicked('restart_btn_in_dialog', event):
+                _game.handle_restart_button()
+            elif _game.button_is_clicked('quit_btn_in_dialog', event):
                 _game.running = False
             _game.show_restart_dialog()
 
-    def start_new_game(self):
-        self.game.board = GameBoard()  # _board와 같이 수정하면 안됨  # noqa
-        _game, _board = self.game, self.game.board
-        _game.start_ticks = pygame.time.get_ticks()
-        _game.in_restart_dialog = _board.deck_depleted = False
-        logger.clear()
+    def on_event_game_quit(self, _):
+        self.game.running = False
+        logger.add('게임이 정상 종료되었습니다.', 'END')
 
-    def handle_event_set_success(self, _):
-        _game, _board = self.game, self.game.board
-        debug_logger.log("SET_SUCCESS_INVOKED", deck_size=len(_board.deck))
-
-        if _board.deck:
-            # 덱에 카드가 있다면 교체
-            for i in _board.selected_idx:
-                sprite = _board.sprites[i]
-                new_card = random.choice(_board.deck)
-                _board.deck.remove(new_card)
-                sprite.start_fade_out(new_card)  # 세트 성공시 새 카드가 있는 경우
+    def on_event_mouse_button_up(self, event):
+        _game = self.game
+        if _game.button_is_clicked('restart_btn', event):
+            _game.handle_restart_button()
+        elif _game.button_is_clicked('hint_btn', event):
+            _game.handle_hint_button()
         else:
-            # 덱에 카드가 없으면 해당 카드 제거
-            debug_logger.log("PRE_CARD_REMOVE", sprites=_board.sprites)
-            for i in _board.selected_idx:
-                sprite = _board.sprites[i]
-                sprite.start_fade_out()  # 세트 성공시 새 카드가 없는 경우
-            debug_logger.log("POST_CARD_REMOVE", sprites=_board.sprites)
+            _game.handle_mouse_click(event)
 
-            if not _board.find_all_sets():
-                _game.in_restart_dialog = True
+    def on_event_key_up(self, event):
+        _game = self.game
 
-        pygame.time.set_timer(user_event.set_success, 0)  # 타이머 종료
-        debug_logger.log("PRE_SET_SUCCESS", selected_idx=_board.selected_idx)
-        _board.selected_idx.clear()  # 교체된 후에는 초기화
-        debug_logger.log("POST_SET_SUCCESS", selected_idx=_board.selected_idx)
+        if _game.animating:
+            debug_logger.log("KEY_IGNORED", reason="Animating in progress", key=event.key)
+            return  # 애니메이션 중에는 키 입력 무시
 
-    def handle_event_animation_done(self, _):
+        if event.key == pygame.K_h:
+            _game.handle_hint_key()
+        elif event.key == pygame.K_r:
+            _game.handle_restart_button()
+        elif event.key == pygame.K_ESCAPE:
+            _game.running = False
+
+    def on_event_load_check_set(self, _):
+        self.game.board.check_set()
+        pygame.time.set_timer(user_event.load_check_set, 0)  # 타이머 종료
+
+    def on_event_set_success(self, _):
+        debug_logger.log("SET_SUCCESS_INVOKED", deck_size=len(self.game.board.deck))
+        self.game.handle_set_success()
+
+    def on_event_animation_done(self, _):
         _game, _board = self.game, self.game.board
         pygame.display.update()
         _game.animating = False
@@ -462,39 +499,18 @@ class GameEventHandler:
         _board.hint_sets = _board.find_all_sets()
         pygame.time.set_timer(user_event.animation_done, 0)
 
-    def handle_game_over(self, _):
+    def on_event_game_over(self, _):
         _game, _board = self.game, self.game.board
         msg = '게임 종료! 다시 시작하려면 버튼을 눌러주세요'
         _board.show_message(msg, duration=3)
         logger.add(msg, 'END')
         _game.running = False  # 메인 루프 종료 트리거
 
-    def handle_event_confirm_restart(self, event):
+    def on_event_replace_all_cards(self, _):
         _game, _board = self.game, self.game.board
-        if event.type == pygame.MOUSEBUTTONUP:
-            if _game.restart_btn_in_dialog.is_clicked(event.pos):
-                self.start_new_game()
-                _game.in_restart_dialog = False
-            elif _game.quit_button_in_dialog.is_clicked(event.pos):
-                _game.running = False
-            _game.show_restart_dialog()
-
-    def handle_main_event(self, event):
-        _game, _board = self.game, self.game.board
-        handlers = {
-            pygame.QUIT: self.handle_game_quit,
-            pygame.MOUSEBUTTONUP: self.handle_mouse_button_up,
-            pygame.KEYUP: self.handle_key_up,
-            user_event.load_check_set: self.handle_event_load_check_set,
-            user_event.set_success: self.handle_event_set_success,
-            user_event.animation_done: self.handle_event_animation_done,
-            user_event.game_over: self.handle_game_over,
-        }
-        if _game.in_restart_dialog:
-            self.handle_event_confirm_restart(event)
-        else:
-            if handler := handlers.get(event.type):
-                handler(event)  # noqa
+        _game.animating = True
+        _board.replace_all_cards()
+        pygame.time.set_timer(user_event.replace_all_cards, 0)
 
 
 # 🚀 실행

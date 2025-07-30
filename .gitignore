@@ -1,3 +1,6 @@
 */old/
 /.pytest_cache/
 /venv/
+.idea
+/boardgame_set/game_log.txt
+*.log

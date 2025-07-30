@@ -18,7 +18,7 @@ class DebugLogger:
 
 class GameLogger:
     log = []
-    filepath = "game_log.txt"
+    filepath = "game.log"
     color_map = {
         "START": (0, 120, 255),
         "END": (0, 180, 0),
@@ -31,7 +31,13 @@ class GameLogger:
         if cards:
             card_info = ' | 조합: ' + ", ".join(str(c) for c in cards)
             full_msg += card_info
-        self.log.append((time_str, full_msg))
+
+        if self.log:
+            recent_log = self.log[-1]
+            if recent_log[1] != full_msg:
+                self.log.append((time_str, full_msg))
+        else:
+            self.log.append((time_str, full_msg))
 
     def clear(self):
         self.log = []
