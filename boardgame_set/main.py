@@ -103,18 +103,17 @@ class GameBoard:
     hint_index = 0
     last_click_time = 0
     click_delay = 300  # 밀리초 단위 (0.3초)
-
-    selected_idx = []
-    matched_sets = []
     failure_count = 0
 
     def __init__(self):
-        # self.deck = generate_deck()
-        self.deck = generate_deck(for_test=True)
+        self.deck = generate_deck()
+        # self.deck = generate_deck(for_test=True)
         self.deck_depleted = False
 
         self.sprites: list[CardSprite | None] = self.create_initial_sprites()
         self.hint_sets = self.find_all_sets()
+        self.selected_idx = []
+        self.matched_sets = []
 
     def get_score(self):
         return len(self.matched_sets) * 3
