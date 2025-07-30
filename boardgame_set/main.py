@@ -336,15 +336,11 @@ class SetGame:
         self.in_restart_dialog = self.board.deck_depleted = False
         logger.clear()
 
-    def handle_hint_button(self):
-        self.animating = True
-        self.board.handle_hint()
-
     def handle_mouse_click(self, event):
         self.animating = True
         self.board.handle_click(event.pos)
 
-    def handle_hint_key(self):
+    def handle_hint(self):
         self.board.handle_hint()
         self.in_restart_dialog = self.board.deck_depleted
         if self.in_restart_dialog:
@@ -464,7 +460,7 @@ class GameEventHandler:
         if _game.button_is_clicked('restart_btn', event):
             _game.handle_restart_button()
         elif _game.button_is_clicked('hint_btn', event):
-            _game.handle_hint_button()
+            _game.handle_hint()
         else:
             _game.handle_mouse_click(event)
 
@@ -476,7 +472,7 @@ class GameEventHandler:
             return  # 애니메이션 중에는 키 입력 무시
 
         if event.key == pygame.K_h:
-            _game.handle_hint_key()
+            _game.handle_hint()
         elif event.key == pygame.K_r:
             _game.handle_restart_button()
         elif event.key == pygame.K_ESCAPE:
